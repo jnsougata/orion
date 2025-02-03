@@ -1,8 +1,6 @@
 import hmac
-from abc import ABCMeta
 
 from starlette.requests import Request
-from typing_extensions import Protocol
 
 
 async def authenticate(
@@ -24,35 +22,3 @@ async def authenticate(
     if not ok:
         return
     return auth
-
-
-class AuthenticationProvider(Protocol):
-    async def authenticate(self, request: Request):
-        ...
-
-    async def verify_cookie(self, request: Request):
-        ...
-
-    async def login(self, request: Request):
-        ...
-
-    async def logout(self, request: Request):
-        ...
-
-    async def register(self, request: Request):
-        ...
-
-    async def change_password(self, request: Request):
-        ...
-
-    async def reset_password(self, request: Request):
-        ...
-
-    async def delete_account(self, request: Request):
-        ...
-
-    async def verify_email(self, request: Request):
-        ...
-
-    async def change_email(self, request: Request):
-        ...
