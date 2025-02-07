@@ -10,7 +10,7 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse
 from starlette.staticfiles import StaticFiles
 
-from .adminapi import attach_admin_routes
+from .adminapi import load_admin_routes
 from .database import Database
 from .enums import DBScope, UseAuthBool
 from .renderer import Tree
@@ -34,28 +34,31 @@ class _View:
 
 
 class Orion(Starlette):
-    def __init__(
-        self,
-        views_dir: str = "views",
-        public_dir: str = "public",
-        database_dir: str = ".database",
-        *args,
-        **kwargs,
-    ):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.database = None
         self.superuser = None
         self.password = None
-        self.views_dir = views_dir
-        self.public_dir = public_dir
-        self.database = Database(database_dir)
-        self.connections = self.database.fetch_all()
-        self.__jinja_env = jinja2.Environment(
-            loader=jinja2.FileSystemLoader(self.views_dir)
-        )
+        self.views_dir = None
+        self.public_dir = None
+        self.database_dir = None
+        self.connections = None
+        self.__jinja_env = None
         self._view_map: Dict[str, _View] = {}
-        self._attach_views()
-        self.mount("/public", StaticFiles(directory=self.public_dir), name="public")
-        attach_admin_routes(self)
+        load_admin_routes(self)
+
+    def public(self, path: str):
+        if not os.path.exists(path):
+            os.makedirs(path)
+        self.public_dir = path
+
+    def views(self, path: str):
+        if not os.path.exists(path):
+            os.makedirs(path)
+        self.views_dir = path
+
+    def databases(self, path: str):
+        self.database_dir = path
 
     def create_admin(
         self,
@@ -141,6 +144,16 @@ class Orion(Starlette):
                         self.add_route(route, self._handler)
 
     def run(self, host: str = "localhost", port: int = 8000, *args, **kwargs):
+        if self.views_dir is not None:
+            self.__jinja_env = jinja2.Environment(
+                loader=jinja2.FileSystemLoader(self.views_dir)
+            )
+            self._attach_views()
+        if self.public_dir is not None:
+            self.mount("/public", StaticFiles(directory=self.public_dir), name="public")
+        self.database_dir = self.database_dir or ".databases"
+        self.database = Database(self.database_dir)
+        self.connections = self.database.fetch_all()
         uvicorn.run(self, host=host, port=port, *args, **kwargs)
 
     def on_startup(self):
